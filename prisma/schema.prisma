@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  walletAddress  String          @id @db.VarChar(35)
+  nickname       String          @db.VarChar(50)
+  totalStaked    Decimal         @default(0) @db.Decimal(15, 6)
+  totalPoints    Decimal         @default(0) @db.Decimal(15, 6)
+  createdAt      DateTime        @default(now()) @db.Timestamp
+  stakeOrders    StakeOrder[]
+  pointsHistory  PointsHistory[]
+
+  @@map("users")
+}
+
+model StakeOrder {
+  id          String        @id @default(uuid()) @db.Uuid
+  walletAddress String      @db.VarChar(35)
+  amount      Decimal       @db.Decimal(15, 6)
+  duration    Int           @db.Integer
+  startTime   DateTime      @default(now()) @db.Timestamp
+  endTime     DateTime      @db.Timestamp
+  status      StakeStatus   @default(active)
+  nftokenId   String?       @unique @db.VarChar(64)
+  createdAt   DateTime      @default(now()) @db.Timestamp
+  user        User          @relation(fields: [walletAddress], references: [walletAddress])
+  slashEvents SlashEvent[]
+
+  @@index([walletAddress])
+  @@index([status])
+  @@map("stake_orders")
+}
+
+model PointsHistory {
+  id            String      @id @default(uuid()) @db.Uuid
+  walletAddress String      @db.VarChar(35)
+  amount        Decimal     @db.Decimal(15, 6)
+  source        String      @db.VarChar(50)
+  taskId        String?     @db.VarChar(64)
+  createdAt     DateTime    @default(now()) @db.Timestamp
+  user          User        @relation(fields: [walletAddress], references: [walletAddress])
+
+  @@index([walletAddress])
+  @@index([createdAt])
+  @@map("points_history")
+}
+
+model SlashEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  orderId     String    @db.Uuid
+  amount      Decimal   @db.Decimal(15, 6)
+  reason      String    @db.Text
+  createdAt   DateTime  @default(now()) @db.Timestamp
+  stakeOrder  StakeOrder @relation(fields: [orderId], references: [id])
+
+  @@map("slash_events")
+}
+
+model Task {
+  id            String          @id @default(uuid()) @db.Uuid
+  title         String          @db.Text
+  description   String          @db.Text
+  rewardPoints  Decimal         @db.Decimal(15, 6)
+  deadline      DateTime        @db.Timestamp
+  reviewRecords ReviewRecord[]
+
+  @@map("tasks")
+}
+
+model ReviewRecord {
+  id              String      @id @default(uuid()) @db.Uuid
+  taskId          String      @db.Uuid
+  reviewerAddress String      @db.VarChar(35)
+  verdict         Verdict     @db.Text
+  evidence        String      @db.Text
+  createdAt       DateTime    @default(now()) @db.Timestamp
+  task            Task        @relation(fields: [taskId], references: [id])
+
+  @@map("review_records")
+}
+
+enum StakeStatus {
+  active
+  completed
+  slashed
+}
+
+enum Verdict {
+  pass
+  reject
+  slash
+}
